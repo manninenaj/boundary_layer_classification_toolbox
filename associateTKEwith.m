@@ -1,4 +1,4 @@
-function [ Fubarfield ] = TKE_connected_with(Eps_log10,skewn,cloudmask,th)
+function [ Fubarfield ] = associateTKEwith(Eps_log10,skewn,cloudmask,th)
 %TKE_incontact_w creates a mask indicating is the turbulence
 %in contact with surface, cloud, both, or neither of them.
 %
