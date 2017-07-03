@@ -22,7 +22,7 @@ Script_boundary_layer_classification.m
 	- loadHaloWinds.m
 	- medianfilter.m
 - loadModel.m
-- LLJ_detection.m
+- detectLLJ.m
 - calcWindQuantities.m
 	- calcTKE.m
 		- medianfilter.m
