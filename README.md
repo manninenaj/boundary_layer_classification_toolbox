@@ -30,7 +30,7 @@ Script_boundary_layer_classification.m
 		- my_skewness.m
 - decimal2daten.m
 - TKE_connected_with.m
-- suncycle.m % OR pvl_ephemeris.m
+- suncycle.m
 - createBitfield.m
 - create_BL_categorization.m
 - write_nc_silent.m
