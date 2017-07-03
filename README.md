@@ -12,6 +12,9 @@ Script_boundary_layer_classification.m
 		- calculateBKG.m
 	- correctBackground.m
 		- my_robustfit.m
+			- statrobustwfun.m
+			- statremovenan.m
+			- statrobustfit.m
 	- correct_focus.m
 	- calculate_dl_SNR.m
 	- write_nc_silent.m
