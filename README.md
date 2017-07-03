@@ -4,28 +4,28 @@ Boundary layer classification toolbox
 This toolbox includes all the functions that are required for boundary layer classfication.
 
 
-Script_BL_classification
-- preprocessHalo
-	- loadHaloVert
-	- correctHaloRipples
-		- calculateBKG_v2
-	- correctBackground
-		- my_robustfit
-	- correct_focus
-	- calculate_dl_SNR
-	- write_nc_silent
-- combineHaloDBSnVAD
-	- loadHaloWinds
-	- medianfilter
-- loadModel
-- LLJ_detection
-- calcWindQuantities
-	- calcTKE
-		- medianfilter
-	- windowSlider
-		- my_skewness
-- decimal2daten
-- suncycle % OR pvl_ephemeris
-- createBitfield
-- create_BL_categorization
-- write_nc_silent
+Script_boundary_layer_classification.m
+- preprocessHalo.m
+	- loadHaloVert.m
+	- correctHaloRipples.m
+		- calculateBKG_v2.m
+	- correctBackground.m
+		- my_robustfit.m
+	- correct_focus.m
+	- calculate_dl_SNR.m
+	- write_nc_silent.m
+- combineHaloDBSnVAD.m
+	- loadHaloWinds.m
+	- medianfilter.m
+- loadModel.m
+- LLJ_detection.m
+- calcWindQuantities.m
+	- calcTKE.m
+		- medianfilter.m
+	- windowSlider.m
+		- my_skewness.m
+- decimal2daten.m
+- suncycle.m % OR pvl_ephemeris.m
+- createBitfield.m
+- create_BL_categorization.m
+- write_nc_silent.m
