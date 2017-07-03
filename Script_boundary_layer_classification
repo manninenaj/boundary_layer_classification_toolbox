@@ -17,30 +17,30 @@ save_blc = 1; % save blc product?
 for daten = datenum(YYYY,MM,DD):datenum(YYYY,MM,DD)
     
     % load winds that are needed
-    data_wind_tday = combineHaloDBSnVAD_v20170530(site,d_type,daten);
-    data_wind_yday = combineHaloDBSnVAD_v20170530(site,d_type,daten-1);
-    data_wind_tmrw = combineHaloDBSnVAD_v20170530(site,d_type,daten+1);
+    data_wind_tday = combineHaloDBSnVAD(site,d_type,daten);
+    data_wind_yday = combineHaloDBSnVAD(site,d_type,daten-1);
+    data_wind_tmrw = combineHaloDBSnVAD(site,d_type,daten+1);
     if isempty(data_wind_tday)||isempty(data_wind_yday)||isempty(data_wind_tmrw)
         continue
     else
         
         % Load models winds if exist and speficied for site, otherwise []
-        model_wind_tday = loadModel_v20170613(site,daten,'gdas1');
-        model_wind_yday = loadModel_v20170613(site,daten-1,'gdas1');
-        model_wind_tmrw = loadModel_v20170613(site,daten+1,'gdas1');
+        model_wind_tday = loadModel(site,daten,'gdas1');
+        model_wind_yday = loadModel(site,daten-1,'gdas1');
+        model_wind_tmrw = loadModel(site,daten+1,'gdas1');
         
         % load Halo vertical data and correct bkg if needed
-        [data_vert,att] = preprocessHalo_v20170613(site,d_type,daten,pol_ch,...
+        [data_vert,att] = preprocessHalo(site,d_type,daten,pol_ch,...
             save_bkgco);
         
         %% Locate low level jets
-        [LLJ] = LLJ_detection_v20170526(data_wind_tday,daten);
+        [LLJ] = LLJ_detection(data_wind_tday,daten);
         
         %% CALCULATE DWL QUANTITIES
         dt = [0.5 1 2 3];
         [time_o,beta,skewn,epsilon,epsilon_error,shear_vector,...
             shear_direction,aero_top,velo,velo_error,sigma_w,sigma_w_error,...
-            aero_layer_mask,nsamples] = calcWindQuantities_v20170615(...
+            aero_layer_mask,nsamples] = calcWindQuantities(...
             data_vert,data_wind_tday,data_wind_yday,data_wind_tmrw,...
             model_wind_tday,model_wind_yday,model_wind_tmrw,dt);
         fnames = fieldnames(time_o);
@@ -113,7 +113,7 @@ for daten = datenum(YYYY,MM,DD):datenum(YYYY,MM,DD)
             window_e = 10/(nanmedian(diff(time_o.(fnames{ifn})))*60); % 10 mins
             Eps_log10_med = medianfilter(Eps_log10,[window_e,3]);
             Eps_log10_med(isnan(beta.(fnames{ifn}))) = nan;
-            fubarfield.(fnames{ifn}) = TKE_connected_with_v20170615(...
+            fubarfield.(fnames{ifn}) = TKE_connected_with(...
                 Eps_log10_med,skewn.(fnames{ifn}),cloudmask,th.epsilon);
             
             %% INTERPOLATE TIME STAMPS
@@ -131,14 +131,14 @@ for daten = datenum(YYYY,MM,DD):datenum(YYYY,MM,DD)
             Eps_med = medianfilter(epsilon.(fnames{ifn}),[window_e,3]);
             Eps_med(isnan(beta.(fnames{ifn}))) = nan;
             
-            bitfield.(fnames{ifn}) = createBitfield_v20170615(th,...
+            bitfield.(fnames{ifn}) = createBitfield(th,...
                 time_o.(fnames{ifn}),beta.(fnames{ifn}),...
                 aero_top.(fnames{ifn}),flux.(fnames{ifn}),Eps_med,...
                 shear_vector.(fnames{ifn}),sun_rise_set,fubarfield.(fnames{ifn}));
             
             % BL classification
             [product, product_attribute] = ...
-                create_BL_categorization_v20170614(bitfield.(fnames{ifn}),...
+                create_BL_categorization(bitfield.(fnames{ifn}),...
                 fubarfield.(fnames{ifn}));
             product.bl_classification(product.bl_classification == 3 & ...
                 isnan(epsilon.(fnames{ifn}))) = 0;
