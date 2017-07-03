@@ -34,7 +34,7 @@ for daten = datenum(YYYY,MM,DD):datenum(YYYY,MM,DD)
             save_bkgco);
         
         %% Locate low level jets
-        [LLJ] = LLJ_detection(data_wind_tday,daten);
+        [LLJ] = detectLLJ(data_wind_tday,daten);
         
         %% CALCULATE DWL QUANTITIES
         dt = [0.5 1 2 3];
