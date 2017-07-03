@@ -3,6 +3,7 @@ Boundary layer classification toolbox
 
 This toolbox includes all the functions that are required for boundary layer classfication.
 
+NOTE: UPDATE PATHS FOR YOUR SYSTEM AND MAKE SURE YOU HAVE THE DATA THAT IS REQUIRED TO RUN THE CODES!!
 
 Script_boundary_layer_classification.m
 - preprocessHalo.m
