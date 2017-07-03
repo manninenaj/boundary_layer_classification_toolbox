@@ -113,7 +113,7 @@ for daten = datenum(YYYY,MM,DD):datenum(YYYY,MM,DD)
             window_e = 10/(nanmedian(diff(time_o.(fnames{ifn})))*60); % 10 mins
             Eps_log10_med = medianfilter(Eps_log10,[window_e,3]);
             Eps_log10_med(isnan(beta.(fnames{ifn}))) = nan;
-            fubarfield.(fnames{ifn}) = TKE_connected_with(...
+            fubarfield.(fnames{ifn}) = associateTKEwith(...
                 Eps_log10_med,skewn.(fnames{ifn}),cloudmask,th.epsilon);
             
             %% INTERPOLATE TIME STAMPS
