@@ -1,4 +1,4 @@
-function [LLJout] = LLJ_detection(data,daten)
+function [LLJout] = detectLLJ(data,daten)
 %LLJ detection finds low level jets in the data, see Tuononen et al. (2017)
 
 %% Combine winds
