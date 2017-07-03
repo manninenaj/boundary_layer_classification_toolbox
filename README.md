@@ -9,7 +9,7 @@ Script_boundary_layer_classification.m
 	- loadHaloVert.m
 		- jd2date.m
 	- correctHaloRipples.m
-		- calculateBKG_v2.m
+		- calculateBKG.m
 	- correctBackground.m
 		- my_robustfit.m
 	- correct_focus.m
