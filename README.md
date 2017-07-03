@@ -32,5 +32,5 @@ Script_boundary_layer_classification.m
 - associateTKEwith.m
 - suncycle.m
 - createBitfield.m
-- create_BL_categorization.m
+- createBLC.m
 - write_nc_silent.m
