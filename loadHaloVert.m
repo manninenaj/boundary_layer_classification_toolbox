@@ -193,6 +193,7 @@ else
             data.beta_error = (1 / sqrt(data.num_pulses_m1)) .* ...
                 (1 + ( 1 ./ abs(data.signal-1)));
     end
+    % add write nc struct
 end
 end
 
