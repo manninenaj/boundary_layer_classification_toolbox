@@ -86,7 +86,7 @@ else
 %                 case 'dbs'
             data.range = data.height;
             data = rmfield(data,{'intensity','height','speed',...
-                'dir','w_speed','beta'});
+                'dir','beta'});
 %                 case 'vad'
 %                     data = rmfield(data,{'intensity','speed',...
 %                         'dir','w_speed','beta'});
