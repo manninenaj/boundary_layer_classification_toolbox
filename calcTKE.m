@@ -1,5 +1,5 @@
 function [epsilon,epsilon_error,epsilon_time,mean_v,mean_v_error,...
-    sigma_v,sigma_v_error,mean_b,mean_b_error,L1,L2,nsamples] = ...
+    sigma_v,sigma_v_error,mean_b,mean_b_error,L1,L2,nsamples,signal] = ...
     calcTKE(data_vert,data_wind_tday,data_wind_yday,...
     data_wind_tmrw,dt)
 %CALCTKE
@@ -8,6 +8,7 @@ function [epsilon,epsilon_error,epsilon_time,mean_v,mean_v_error,...
 epsilon = struct;
 epsilon_error = struct;
 epsilon_time = struct;
+signal = struct;
 
 % Defaults
 beamwidth = 0.00015; % approx two-way half power full width in degrees
@@ -37,6 +38,7 @@ for ii = 1:length(dt)
     mean_b_tmp        = zeros(length(atime), length(data_vert.range));
     mean_b_error_tmp  = zeros(length(atime), length(data_vert.range));
     nsamples_tmp      = zeros(length(atime), length(data_vert.range));
+    mean_signal_tmp   = zeros(length(atime), length(data_vert.range));
     for kk = 1:length(atime)
         time_box = find(data_vert.time > atime(kk)-dt(ii)./2 ...
             & data_vert.time <= atime(kk)+dt(ii)./2);
@@ -45,6 +47,7 @@ for ii = 1:length(dt)
             tmp_v_error = reshape(data_vert.v_error(time_box,1:length(data_vert.range)), length(time_box), length(data_vert.range));
             tmp_b = reshape(data_vert.beta(time_box,1:length(data_vert.range)), length(time_box), length(data_vert.range));
             tmp_b_error = reshape(data_vert.beta_error(time_box,1:length(data_vert.range)), length(time_box), length(data_vert.range));
+            tmp_snr = reshape(data_vert.signal(time_box,1:length(data_vert.range)), length(time_box), length(data_vert.range));
             
             nsamples_tmp(kk,:) = sum(~isnan(tmp_v));
             index = find(nsamples_tmp(kk,:) > min(10,size(tmp_v,1) .* .75));
@@ -55,6 +58,7 @@ for ii = 1:length(dt)
                 sigma_v_error_tmp(kk,index) = nanstd(tmp_v_error(:,index));
                 mean_b_tmp(kk,index)        = nanmean(tmp_b(:,index));
                 mean_b_error_tmp(kk,index)  = nanmean(tmp_b_error(:,index));
+                mean_signal_tmp(kk,index)   = nanmean(tmp_snr(:,index));
             end
         end
     end
@@ -70,6 +74,7 @@ for ii = 1:length(dt)
     sigma_v_error_tmp(sigma_v_error_tmp==0) = nan;
     mean_b_tmp(mean_b_tmp==0) = nan;
     mean_b_error_tmp(mean_b_error_tmp==0) = nan;
+    mean_signal_tmp(mean_signal_tmp==0) = nan;
     
     if dt(ii)==0.5/60
         mean_v.t_0_5min = mean_v_tmp;
@@ -80,6 +85,7 @@ for ii = 1:length(dt)
         mean_b_error.t_0_5min = mean_b_error_tmp;
         nsamples.t_0_5min = nsamples_tmp;
         time_ref.t_0_5min = atime;
+        signal.t_0_5min = mean_signal_tmp;
     else
         eval(['mean_v.t_' sprintf('%s',num2str(dt(ii)*60)) 'min = mean_v_tmp;'])
         eval(['mean_v_error.t_' sprintf('%s',num2str(dt(ii)*60)) 'min = mean_v_error_tmp;'])
@@ -89,11 +95,12 @@ for ii = 1:length(dt)
         eval(['mean_b_error.t_' sprintf('%s',num2str(dt(ii)*60)) 'min = mean_b_error_tmp;'])
         eval(['nsamples.t_' sprintf('%s',num2str(dt(ii)*60)) 'min = nsamples_tmp;'])
         eval(['time_ref.t_' sprintf('%s',num2str(dt(ii)*60)) 'min = atime;'])
+        eval(['signal.t_' sprintf('%s',num2str(dt(ii)*60)) 'min = mean_signal_tmp;'])
     end
 end
 
 % for later use
-clearvars sigma_v_tmp sigma_v_error_tmp mean_v_tmp mean_v_error_tmp mean_b_tmp mean_b_error_tmp
+clearvars sigma_v_tmp sigma_v_error_tmp mean_v_tmp mean_v_error_tmp mean_b_tmp mean_b_error_tmp mean_signal_tmp
 
 % Calculate epsilon for first value of dt only unless high res data available
 % if dt_raw > 0.003
@@ -125,7 +132,7 @@ for ii = 1:length(dt)%timeperiod
     true_variance = obs_variance - noise_variance;
     
     [Xr,Yr] = meshgrid(data_vert.range, time_ii);
-    if ~isempty(data_wind_tmrw)
+    if ~isempty(data_wind_tmrw) && ~isempty(data_wind_yday)
         [Xo,Yo] = meshgrid(data_wind_tday.range,...
             [data_wind_yday.time(:)-24;...
             data_wind_tday.time(:);...
@@ -146,6 +153,7 @@ for ii = 1:length(dt)%timeperiod
     % Try infilling some gaps
     usmooth = medianfilter(uwind_tmp);
     vsmooth = medianfilter(vwind_tmp);
+%     vsmooth = reshape(vsmooth,size(vwind_tmp,1),size(vwind_tmp,2));
     [~, count] = medianfilter(isfinite(uwind_tmp));
     
     % kernel is [3 3], max count is 9
