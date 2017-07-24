@@ -1,9 +1,9 @@
-function [data,att_dbs,att_vad] = combineHaloDBSnVAD(site,d_type,daten)
+function [data,att_dbs,att_vad] = combineHaloDBSnVAD(site,daten,cut_h)
 %combineHaloDBSnVAD combines dbs and vad winds. TBD: supplementary winds
 
 % Load data
-[dbs_tday,att_dbs] = loadHaloWinds(site,d_type,daten,'dbs');
-[vad_tday,att_vad] = loadHaloWinds(site,d_type,daten,'vad');
+[dbs_tday,att_dbs] = loadHaloWinds(site,daten,'dbs');
+[vad_tday,att_vad] = loadHaloWinds(site,daten,'vad');
 
 % Check what data is there, if any
 if isempty(dbs_tday) && ~isempty(vad_tday)      % dbs 0 AND vad 1
@@ -42,17 +42,17 @@ switch status
         data = [];
     case 4
         % Clean DBS data
-        dbs.wind_speed(:,1:3)     = nan;
-        dbs.wind_direction(:,1:3) = nan;
-        dbs.uwind(:,1:3)          = nan;
-        dbs.vwind(:,1:3)          = nan;
-        dbs.wwind(:,1:3)          = nan;
+        dbs.wind_speed(:,1:cut_h)     = nan;
+        dbs.wind_direction(:,1:cut_h) = nan;
+        dbs.uwind(:,1:cut_h)          = nan;
+        dbs.vwind(:,1:cut_h)          = nan;
+        dbs.wwind(:,1:cut_h)          = nan;
         
         % Clean VAD-data
-        vad.wind_speed(:,1:3)     = nan;
-        vad.wind_direction(:,1:3) = nan;
-        vad.uwind(:,1:3)          = nan;
-        vad.vwind(:,1:3)          = nan;
+        vad.wind_speed(:,1:cut_h)     = nan;
+        vad.wind_direction(:,1:cut_h) = nan;
+        vad.uwind(:,1:cut_h)          = nan;
+        vad.vwind(:,1:cut_h)          = nan;
                 
         % Add new data from VAD
         % include small offset (fraction of dz) to avoid double-counting in range
@@ -94,10 +94,10 @@ switch status
         [~, counts]    = medianfilter(isfinite(windspd_tmp));
         
         % kernel is [3 3], max count is 9
-        windspd_smooth(counts < 3) = nan; windspd_smooth(:,1:3) = nan;
-        winddir_smooth(counts < 3) = nan; winddir_smooth(:,1:3) = nan;
-        uwind_smooth(counts < 3)   = nan; uwind_smooth(:,1:3)   = nan;
-        vwind_smooth(counts < 3)   = nan; vwind_smooth(:,1:3)   = nan;
+        windspd_smooth(counts < 3) = nan; windspd_smooth(:,1:cut_h) = nan;
+        winddir_smooth(counts < 3) = nan; winddir_smooth(:,1:cut_h) = nan;
+        uwind_smooth(counts < 3)   = nan; uwind_smooth(:,1:cut_h)   = nan;
+        vwind_smooth(counts < 3)   = nan; vwind_smooth(:,1:cut_h)   = nan;
         ind_nm = isnan(windspd_tmp) & isfinite(uwind_smooth);
         data.wind_speed     = windspd_tmp;
         data.wind_direction = winddir_tmp;
@@ -115,4 +115,5 @@ switch status
         
 end
 end
+
 
