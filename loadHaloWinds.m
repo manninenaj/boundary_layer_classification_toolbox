@@ -1,11 +1,10 @@
-function [data,att,dim] = loadHaloWinds(site,...
-    d_type,daten,s_type)
+function [data,att,dim] = loadHaloWinds(site,daten,s_type)
+
 %loadHaloWinds loads HALO Doppler lidar data from vertically pointing
 %measurements
 %
 %Inputs:
 % site           site name in lower case, e.g. 'hyytiala'
-% d_type         data type, e.g. 'uncorrected'
 % daten          date in matlab datenum format
 % s_type         scan type, e.g. 'VAD'
 %
@@ -14,13 +13,37 @@ function [data,att,dim] = loadHaloWinds(site,...
 % att
 % dim
 
-path_data = ['/.../.../' site '/' d_type '/' datestr(daten,'yyyy') '/' s_type];
+switch site
+    case 'juelich'
+        if strcmp(s_type,'dbs')
+            scan = 'Wind_*';
+        elseif strcmp(s_type,'vad')
+            scan = 'wind_vad_*';
+        end
+        path_data = ['/data/TR32/D2/data/wind_lidar/data/nc/' ...
+            datestr(daten,'yyyy') '/' datestr(daten,'mm'),'/',datestr(daten,'dd')];
+        
+    case 'arm-oliktok'
+        if strcmp(s_type,'dbs')
+            ifile_winds = []; path_data = []; scan = [];
+        elseif strcmp(s_type,'vad')
+            path_data = ['/data/hatpro/jue/cloudnet/juelich/calibrated/dopplerlidar/'...
+            datestr(daten,'yyyy') '/ftp.cdc.noaa.gov/Public/mmaahn/olidlprofwind4newsM1'];
+            scan = 'olidlprofwind4news*';
+        end
+end
 
 % Find the date
-files_winds = dir([path_data '/' suffix]);
+files_winds = dir([path_data '/' scan]);
 fnames_winds = {files_winds(~[files_winds.isdir]).name}'; % name list
-ifile_winds = strfind(fnames_winds, datestr(daten,'yyyymmdd')); % find dates
-ifile_winds = find(not(cellfun('isempty', ifile_winds)), 1);
+if strcmp(s_type,'dbs') && strcmp(site,'juelich')
+    ifile_profile = strfind(fnames_winds, 'Profile');
+    ifile_vad = strfind(fnames_winds, 'vad');
+    ifile_winds = find(cellfun('isempty', ifile_profile) & cellfun('isempty', ifile_vad));
+else
+    ifile_winds = strfind(fnames_winds, datestr(daten,'yyyymmdd')); % find dates
+    ifile_winds = find(not(cellfun('isempty', ifile_winds)));
+end
 if isempty(ifile_winds)
     warning('%s %s data doesn''t exist --> skipping',...
         datestr(daten,'yyyymmdd'),s_type)
@@ -30,14 +53,14 @@ else
     % if more than one file per day
     if length(ifile_winds)>1
         % load first
-        [data,att,dim] = load_nc_struct_silent([path_data '/' ...
+        [data,att,dim] = load_nc_struct([path_data '/' ...
             fnames_winds{ifile_winds(1)}]);
         % get fieldnames
         fnamesdata = fieldnames(data);
         fnamesdims = fieldnames(dim);
         % load the rest
         for i1 = 2:length(ifile_winds)
-            [tmpdata,~,tmpdim] = load_nc_struct_silent([path_data '/' ...
+            [tmpdata,~,tmpdim] = load_nc_struct([path_data '/' ...
                 fnames_winds{ifile_winds(i1)}]);
             % find which field in dimensions is associated with time
             iftime = find(not(cellfun('isempty',...
@@ -67,8 +90,8 @@ else
         end
     % if only one file per day
     else
-        [data,att,dim] = load_nc_struct_silent([path_data '/' ...
-            fnames_winds{ifile_winds}]);
+        [data,att,dim] = load_nc_struct([path_data '/' ...
+            fnames_winds{ifile_winds(1)}]);
     end
     % modify fields when necessary
     switch site
@@ -109,10 +132,15 @@ else
             data.wind_speed(data.wind_direction == 141) = nan;
             data.wind_direction(data.wind_direction == 141) = nan;
             data = rmfield(data,{'u','height','v'});
+            
+        case 'arm-oliktok'
+            data.time = data.time./3600;
+            data.signal = data.mean_snr+1;
+            data.uwind = data.u;
+            data.vwind = data.v;
+            data.range = data.height;
         otherwise
             error('Site %s not specified yet!',site)
     end
 end
 end
-
-
