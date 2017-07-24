@@ -18,19 +18,19 @@ switch site
         suffix = '*.nc';
     case 'juelich'
         suffix = 'Stare*.nc';
+        path_data = ['/data/TR32/D2/data/wind_lidar/data/nc/' ...
+            datestr(daten,'yyyy') '/' datestr(daten,'mm') '/' datestr(daten,'dd')];
     case 'limassol'
         suffix = '*.nc';
     case 'arm-oliktok'
-        suffix = '*.cdf';
+        suffix = 'olidlfpt*.cdf';
+        path_data = ['/data/hatpro/jue/cloudnet/juelich/calibrated/dopplerlidar/'...
+            datestr(daten,'yyyy') '/ftp.cdc.noaa.gov/Public/mmaahn/olidlfptM1'];
     case 'arm-graciosa'
         suffix = '*.cdf';
     otherwise
         suffix = '*.nc';
 end
-
-% Construct path to file
-path_data = ['/.../.../' site '/' d_type ...
-    '/' datestr(daten,'yyyy') '/'  pol_ch];
 
 % Find the date
 files_snr = dir([path_data '/' suffix]); % vertical
@@ -46,7 +46,7 @@ else
     % if more than one file per day
     if length(ifile_snr)>1
         % load first
-        [data,att,dim] = load_nc_struct_silent([path_data '/' ...
+        [data,att,dim] = load_nc_struct([path_data '/' ...
             fnames_snr{ifile_snr(1)}]);
         % get fieldnames
         fnamesdata = fieldnames(data);
@@ -67,7 +67,7 @@ else
         end
         % load the rest
         for i1 = 2:length(ifile_snr)
-            [tmpdata,~,tmpdim] = load_nc_struct_silent([path_data '/' ...
+            [tmpdata,~,tmpdim] = load_nc_struct([path_data '/' ...
                 fnames_snr{ifile_snr(i1)}]);
             % find which field in dimensions is associated with time
             iftime = find(not(cellfun('isempty',...
@@ -96,7 +96,7 @@ else
         end
         % if only one file per day
     else
-        [data,att,dim] = load_nc_struct_silent([path_data '/' ...
+        [data,att,dim] = load_nc_struct([path_data '/' ...
             fnames_snr{ifile_snr}]);
     end
     
@@ -196,5 +196,7 @@ else
     % add write nc struct
 end
 end
+
+
 
 
