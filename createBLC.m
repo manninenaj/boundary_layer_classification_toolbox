@@ -1,4 +1,4 @@
-function [product, product_attribute] = createBLC(bitfield,fubarfield)
+function [product, product_attribute] = createBLC(bitfield,fubarfield,cut_h)
 
 category_bits = bitfield;
 
@@ -15,6 +15,7 @@ driven_bit = double(bitand(uint16(category_bits),uint16(128))>0);
 %% Decision tree
 % Stability
 BL_mask = heatflux_bit .* 0;
+BL_mask(~heatfluxabshi_bit) = 1;
 BL_mask(~heatflux_bit & heatfluxabshi_bit) = 1;
 BL_mask(heatflux_bit & heatfluxabshi_bit) = 2;
 % Non-turbulent
@@ -33,8 +34,8 @@ BL_mask(BL_mask == 3.5 & BL_mask~=4 & BL_mask~=7 & BL_mask~=8 & shear_bit & laye
 BL_mask(BL_mask == 3.5) = 6;
 
 % Create product "boundary layer categorization"
-BL_mask(:,1:3) = 0;
-BL_mask(:,1:3) = BL_mask(:,end-2:end);
+BL_mask(:,1:cut_h) = 0;
+BL_mask(:,1:cut_h) = BL_mask(:,end-(cut_h-1):end);
 BL_mask(~layer_bit) = 0;
 product.bl_classification = int8(BL_mask);
 
@@ -75,7 +76,7 @@ product_attribute.bl_classification.legend_key_blue =  [0.6 1.0 1.0 0.2 1.0 0.2 
 
 % Create product "TKE connected with"
 TKE_connected = fubarfield;
-TKE_connected(:,1:3) = 0;
+TKE_connected(:,1:cut_h) = 0;
 TKE_connected(~layer_bit) = 0;
 product.TKE_connected = int8(TKE_connected);
 
@@ -105,3 +106,4 @@ product_attribute.TKE_connected.legend_key_red =   [0.0 1.0 1.0 0.4 1.0];
 product_attribute.TKE_connected.legend_key_green = [0.7 1.0 0.8 0.5 0.0];
 product_attribute.TKE_connected.legend_key_blue =  [1.0 0.6 0.5 0.6 1.0];
 end
+
