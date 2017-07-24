@@ -31,7 +31,7 @@ for i = 1:size(beta,1)
             end
         else
             % Heat flux neutral
-            switch time(i) > sun_rise_set(1) && time(i) < sun_rise_set(2)
+            switch (time(i) > sun_rise_set(1) && time(i) < 24) || (time(i) > 0 && time(i) < sun_rise_set(2))
                 case 0
                     bit_flux = 0;
                 case 1
