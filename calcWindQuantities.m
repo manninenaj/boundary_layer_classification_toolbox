@@ -2,7 +2,7 @@ function [time_o,beta,skewn,epsilon,epsilon_error,shear_vec,shear_dir,...
     aero_top,velo,velo_error,sigma_w,sigma_w_error,aero_layer_mask,...
     nsamples,speed,direc,signal] = calcWindQuantities(data_vert,data_wind_tday,...
     data_wind_yday,data_wind_tmrw,model_wind_tday,model_wind_yday,...
-    model_wind_tmrw,dt,site,cut_h)
+    model_wind_tmrw,dt,site)
 %CALCWINDQUANTITIES calculates different quantities from Halo Doppler wind
 %lidar data
 %
@@ -40,17 +40,17 @@ for it = 1:length(dt)
     aero_top_beta_it = nan(size(beta_it,1),1);
     aero_layer_mask_it = zeros(size(beta_it));
     for ip = 1:size(beta_it,1)
-        for jp = cut_h+1:size(beta_it,2)-6
+        for jp = data_vert.cut+1:size(beta_it,2)-6
             itop_beta_it(ip,jp) = not((isnan(beta_it(ip,jp)) | beta_it(ip,jp) == 0) &...
                 (all(isnan(beta_it(ip,jp:jp+6))) | all(beta_it(ip,jp:jp+6)==0)));
         end
-        itop_beta_it(ip,[1:cut_h,find(itop_beta_it(ip,:) == 0,1,'first'):end]) = 0;
-        tmp = itop_beta_it(ip,:); tmp(1:cut_h) = 1;
+        itop_beta_it(ip,[1:data_vert.cut,find(itop_beta_it(ip,:) == 0,1,'first'):end]) = 0;
+        tmp = itop_beta_it(ip,:); tmp(1:data_vert.cut) = 1;
         aero_top_beta_it(ip) = find(tmp == 0,1,'first')-1;
         aero_layer_mask_it(ip,1:aero_top_beta_it(ip)) = 1;
     end
-    aero_layer_mask_it(:,1:cut_h) = 0;
-    aero_top_beta_it(aero_top_beta_it<cut_h+1) = nan;
+    aero_layer_mask_it(:,1:data_vert.cut) = 0;
+    aero_top_beta_it(aero_top_beta_it<data_vert.cut+1) = nan;
     aero_top_beta_it = round(smooth(inpaint_nans(aero_top_beta_it,4),5));
     aero_top_beta_it(all(isnan(beta_it),2)) = nan;
     if dt(it)==.5
@@ -154,16 +154,16 @@ for ifn = 1:length(fnames)
     skewn.(fnames{ifn}) = interp2(Xo,Yo,skewn_tmp,Xr,Yr);
     skewn.(fnames{ifn})(isnan(beta.(fnames{ifn}))) = nan;
     
-    % clean cut_h lowest most range gates
-    beta.(fnames{ifn})(:,1:cut_h) = nan;
-    velo.(fnames{ifn})(:,1:cut_h) = nan;
-    epsilon.(fnames{ifn})(:,1:cut_h) = nan;
-    skewn.(fnames{ifn})(:,1:cut_h) = nan;
-    sigma_w.(fnames{ifn})(:,1:cut_h) = nan;
-    shear_vec.(fnames{ifn})(:,1:cut_h) = nan;
-    shear_dir.(fnames{ifn})(:,1:cut_h) = nan;
-    speed.(fnames{ifn})(:,1:cut_h) = nan;
-    direc.(fnames{ifn})(:,1:cut_h) = nan;
+    % clean data_vert.cut lowest most range gates
+    beta.(fnames{ifn})(:,1:data_vert.cut) = nan;
+    velo.(fnames{ifn})(:,1:data_vert.cut) = nan;
+    epsilon.(fnames{ifn})(:,1:data_vert.cut) = nan;
+    skewn.(fnames{ifn})(:,1:data_vert.cut) = nan;
+    sigma_w.(fnames{ifn})(:,1:data_vert.cut) = nan;
+    shear_vec.(fnames{ifn})(:,1:data_vert.cut) = nan;
+    shear_dir.(fnames{ifn})(:,1:data_vert.cut) = nan;
+    speed.(fnames{ifn})(:,1:data_vert.cut) = nan;
+    direc.(fnames{ifn})(:,1:data_vert.cut) = nan;
 end
 %% Time out
 time_o = t_epsilon;
