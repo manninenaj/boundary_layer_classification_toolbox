@@ -1,4 +1,4 @@
-function [data,att,dim] = loadHaloVert(site,daten,d_type,pol_ch)
+function [data,att,dim] = loadHaloVert(site,daten,pol_ch)
 %loadHaloVert loads HALO Doppler lidar data from vertically pointing
 %measurements
 %
@@ -25,7 +25,7 @@ switch site
     case 'arm-oliktok'
         suffix = 'olidlfpt*.cdf';
         path_data = ['/data/hatpro/jue/cloudnet/juelich/calibrated/dopplerlidar/'...
-            datestr(daten,'yyyy') '/ftp.cdc.noaa.gov/Public/mmaahn/olidlfptM1'];
+            datestr(daten,'yyyy') '/olidlfptM1'];
     case 'arm-graciosa'
         suffix = '*.cdf';
     otherwise
@@ -119,6 +119,7 @@ else
             att.v_raw = att.doppler;
             att.num_pulses_m1 = att.pulses_per_ray;
             att.focus = att.focus_range;
+                        
             att.num_samples_gate = att.gate_points;
             data = rmfield(data,{'intensity','doppler','pulses_per_ray',...
                 'focus_range','azi','ele','gate_points'});
@@ -196,7 +197,5 @@ else
     % add write nc struct
 end
 end
-
-
 
 
