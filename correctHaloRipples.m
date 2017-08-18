@@ -3,8 +3,8 @@ function [snr1] = correctHaloRipples(snr0,t_snr,site,daten)
 %Vakkari et al. (201?)
 
 % Calculate background from the bkg files
-bkg_path = ['/.../.../' site ...
-    '/uncorrected/' datestr(daten,'yyyy') '/background/'];
+bkg_path = ['/data/TR32/D2/data/wind_lidar/data/raw/bkgnd/' ...
+    datestr(daten,'yyyy') '/' datestr(daten,'mm') '/' datestr(daten,'dd') '/'];
 
 files_bkg = dir(bkg_path); % vertical
 fnames_bkg = {files_bkg(~[files_bkg.isdir]).name}'; % name list
