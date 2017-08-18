@@ -1,4 +1,4 @@
-function [data,att,dim] = preprocessHalo(site,d_type,daten,pol_ch,save_bkg_corr)
+function [data,att,dim] = preprocessHalo(site,d_type,daten,pol_ch,save_bkg_corr,cut)
 %preprocessHalo loada HALO lidar vertically pointing data and if needed,
 %corrects it for the backrgound artifacts
 %
@@ -20,10 +20,14 @@ function [data,att,dim] = preprocessHalo(site,d_type,daten,pol_ch,save_bkg_corr)
 %University of Helsinki, Finland
 
 %% Load HAlO data
-[data,att,dim] = loadHaloVert(site,daten,d_type,pol_ch);
+[data,att,dim] = loadHaloVert(site,daten,pol_ch);
 if isempty(data)
     return
 else
+    ind = find(data.range > cut,1,'first');
+    data.cut = ind-1;
+    att.cut.dimensions = {};
+    att.cut.long_name = 'cut height';
     %% Correct bkg if needed
     if strcmp(d_type,'uncorrected')
         
@@ -34,7 +38,7 @@ else
         % Correct shape
         [snr_corr_2, ~, ~, ~, ~] =...
             correctBackground(snr_corr_1, data.range, ...
-            data.time,'correct_remnant','correct','ignore',60);
+            data.time, data.cut, 'correct_remnant','correct','ignore',60);
         %% Save old values for now
         switch site
             case 'hyytiala'
@@ -62,7 +66,7 @@ else
         
         %% Correct forcus and re-calculate uncertainties if system's specified
         if ismember(site,{'hyytiala','sodankyla','kuopio','kumpula',...
-                'kenttarova','juelich','limassol'})
+                'kenttarova','juelich','limassol','arm-oliktok'})
             
             % Re-apply focus correction to get new PR2 (beta)
             [data.beta_raw,data.beta_raw0] = correct_focus(data.focus, data);
@@ -72,6 +76,7 @@ else
             [data, att] = calculate_dl_SNR(data, att, site);
             data.beta_error = (1 / sqrt(data.num_pulses_m1)) .* ...
                 (1 + ( 1 ./ abs(data.signal-1)));
+           
         end
     end
     %% Use snr threshold
@@ -82,6 +87,10 @@ else
             snr_th = 1.01;
         case 'limassol'
             snr_th = 1.01;
+        case 'juelich'
+            snr_th = 1.015;
+        case 'arm-olitok'
+            snr_th = 1.02;
         otherwise
             snr_th = 1.02;
     end
@@ -93,31 +102,46 @@ else
     %% Save corrected data
     if save_bkg_corr == 1
         
-        % Pull the instrument id from the global attributes, if not found 'xx'
-        fnames_att = fieldnames(att.global);
-        im1 = not(cellfun('isempty',regexpi(fnames_att,'id')));
-        im2 = not(cellfun('isempty',regexpi(fnames_att,'system')));
+        data = rmfield(data,{'signal0','beta0','beta_raw0','beta_error0','v_error0'});
+        att = rmfield(att,{'signal0','beta0','beta_raw0','beta_error0','v_error0'});
         
-        % if field found with both 'id' & 'system' in name (case insensitive)
-        if any(im1&im2)
-            if ischar(att.global.(fnames_att{im1&im2}))
-                % if systemID value is string and incase there are spaces
-                halo_id = num2str(str2double(att.global.(fnames_att{im1&im2})));
-            else
-                % if systemID value is a number
-                halo_id = num2str(att.global.(fnames_att{im1&im2}));
+        f = fieldnames(att);
+        for i=1:size(f,1)
+            switch f{i}
+             case 'global'
+             case 'time'
+              att.time = create_attributes({'time'},'Decimal hours UTC', 'hours since 00:00:00') ;
+              att.time.standard_name = 'time';
+              att.time.axis = 'T';
+             case 'range'
+              att.range.dimensions = {'range'};
+             case {'azimuth'}
+              if length(data.azimuth) == length(data.time)
+                att.(f{i}).dimensions = {'time'};
+                att.(f{i}).missing_value = -999;
+                att.(f{i}).FillValue_ = -999;
+              end
+             case {'beta' 'beta_raw' 'v' 'v_raw' 'signal' 'v_error' 'beta_error'}
+              att.(f{i}).dimensions = {'time' 'range'};
+              att.(f{i}).missing_value = -999;
+              att.(f{i}).FillValue_ = -999;
+             otherwise
+              att.(f{i}).dimensions = {};
             end
-        else
-            % else assign to unknown
-            halo_id = 'xx';
+          if isfield(att.(f{i}), 'dimensions') && isempty(att.(f{i}).dimensions)
+            if isfield(att.(f{i}),'missing_value')
+              att.(f{i}) = rmfield(att.(f{i}),{'missing_value' 'FillValue_'}); 
+            end
+          end  
         end
+
+        dimension.time = length(data.time);
+        dimension.range = length(data.range);
         
-        
-        f_path = '/.../.../';
+        f_path = '/data/hatpro/jue/cloudnet';
         % Write corrected data into a netcdf file
-        write_nc_silent([f_path '/' site '/corrected/' datestr(daten,'yyyy') '/' ...
-            pol_ch '/' datestr(daten,'yyyymmdd') '_halo-doppler-lidar-' halo_id ...
-            '-' pol_ch '_corr.nc'],dim,data,att)
+        write_nc_struct([f_path '/' site '/calibrated/halo-doppler-lidar/' datestr(daten,'yyyy') '/' ...
+            datestr(daten,'yyyymmdd') '_juelich_halo-doppler-lidar.nc'],dimension,data,att)
     end
 end
 end
