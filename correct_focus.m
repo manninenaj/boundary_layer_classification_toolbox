@@ -16,6 +16,10 @@ if ~isfield(data, 'beam_energy')
   data.beam_energy = 0.00001;
 end
 
+if ~isfield(data, 'bandwidth')
+  data.bandwidth = 5e+7;
+end
+
 het_area = pi .* ((0.7 * data.lens_diameter ./ 2).^2);
 
 if focus < 0
