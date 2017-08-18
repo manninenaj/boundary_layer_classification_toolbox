@@ -28,7 +28,7 @@ switch site
             ifile_winds = []; path_data = []; scan = [];
         elseif strcmp(s_type,'vad')
             path_data = ['/data/hatpro/jue/cloudnet/juelich/calibrated/dopplerlidar/'...
-            datestr(daten,'yyyy') '/ftp.cdc.noaa.gov/Public/mmaahn/olidlprofwind4newsM1'];
+            datestr(daten,'yyyy') '/olidlprofwind4newsM1'];
             scan = 'olidlprofwind4news*';
         end
 end
@@ -45,8 +45,8 @@ else
     ifile_winds = find(not(cellfun('isempty', ifile_winds)));
 end
 if isempty(ifile_winds)
-    warning('%s %s data doesn''t exist --> skipping',...
-        datestr(daten,'yyyymmdd'),s_type)
+%     warning('%s %s data doesn''t exist --> skipping',...
+%         datestr(daten,'yyyymmdd'),s_type)
     data = []; att = []; dim = [];
     return
 else
