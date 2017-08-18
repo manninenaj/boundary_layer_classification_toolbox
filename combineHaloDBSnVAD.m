@@ -1,4 +1,4 @@
-function [data,att_dbs,att_vad] = combineHaloDBSnVAD(site,daten,cut_h)
+function [data,att_dbs,att_vad] = combineHaloDBSnVAD(site,daten,cut)
 %combineHaloDBSnVAD combines dbs and vad winds. TBD: supplementary winds
 
 % Load data
@@ -22,37 +22,42 @@ vad = vad_tday;
 
 switch status
     case 1
+        data = vad;
+        ind = find(data.range > cut,1,'first');
         % Clean VAD-data
-%         vad.wind_speed(:,1:3)     = nan;
-%         vad.wind_direction(:,1:3) = nan;
-%         vad.uwind(:,1:3)          = nan;
-%         vad.vwind(:,1:3)          = nan;
-%         vad.range(1:3)           = nan;
-        data = vad;        
+        data.wind_speed(:,1:ind-1)     = nan;
+        data.wind_direction(:,1:ind-1) = nan;
+        data.uwind(:,1:ind-1)          = nan;
+        data.vwind(:,1:ind-1)          = nan; 
+        data.cut = ind-1;
+        if data.time(end-1) > 23 && data.time(end) < 23; data.time(end) = 24; end;
     case 2
-        % Clean DBS data
-%         dbs.wind_speed(:,1:4)     = nan;
-%         dbs.wind_direction(:,1:4) = nan;
-%         dbs.uwind(:,1:4)          = nan;
-%         dbs.vwind(:,1:4)          = nan;
-%         dbs.wwind(:,1:4)          = nan;
-%         dbs.range(1:4)            = nan;
         data = dbs;
+        ind = find(data.range > cut,1,'first');
+        % Clean DBS data
+        data.wind_speed(:,1:ind-1)     = nan;
+        data.wind_direction(:,1:ind-1) = nan;
+        data.uwind(:,1:ind-1)          = nan;
+        data.vwind(:,1:ind-1)          = nan;
+        data.cut = ind-1;
+        if data.time(end-1) > 23 && data.time(end) < 23; data.time(end) = 24; end;
     case 3 % load model winds TBD
         data = [];
     case 4
+        ind = find(dbs.range > cut,1,'first');
         % Clean DBS data
-        dbs.wind_speed(:,1:cut_h)     = nan;
-        dbs.wind_direction(:,1:cut_h) = nan;
-        dbs.uwind(:,1:cut_h)          = nan;
-        dbs.vwind(:,1:cut_h)          = nan;
-        dbs.wwind(:,1:cut_h)          = nan;
+        dbs.wind_speed(:,1:ind-1)     = nan;
+        dbs.wind_direction(:,1:ind-1) = nan;
+        dbs.uwind(:,1:ind-1)          = nan;
+        dbs.vwind(:,1:ind-1)          = nan;
+        dbs.wwind(:,1:ind-1)          = nan;
         
         % Clean VAD-data
-        vad.wind_speed(:,1:cut_h)     = nan;
-        vad.wind_direction(:,1:cut_h) = nan;
-        vad.uwind(:,1:cut_h)          = nan;
-        vad.vwind(:,1:cut_h)          = nan;
+        ind = find(vad.range > cut,1,'first');
+        vad.wind_speed(:,1:ind-1)     = nan;
+        vad.wind_direction(:,1:ind-1) = nan;
+        vad.uwind(:,1:ind-1)          = nan;
+        vad.vwind(:,1:ind-1)          = nan;
                 
         % Add new data from VAD
         % include small offset (fraction of dz) to avoid double-counting in range
@@ -86,6 +91,8 @@ switch status
         data.range  = dbs.range;
         data.time   = dbs.time;
         
+        if data.time(end-1) > 23 && data.time(end) < 23; data.time(end) = 24; end;
+        
         % Try infilling some gaps
         windspd_smooth = medianfilter(windspd_tmp);
         winddir_smooth = medianfilter(winddir_tmp);
@@ -94,10 +101,10 @@ switch status
         [~, counts]    = medianfilter(isfinite(windspd_tmp));
         
         % kernel is [3 3], max count is 9
-        windspd_smooth(counts < 3) = nan; windspd_smooth(:,1:cut_h) = nan;
-        winddir_smooth(counts < 3) = nan; winddir_smooth(:,1:cut_h) = nan;
-        uwind_smooth(counts < 3)   = nan; uwind_smooth(:,1:cut_h)   = nan;
-        vwind_smooth(counts < 3)   = nan; vwind_smooth(:,1:cut_h)   = nan;
+        windspd_smooth(counts < 3) = nan; windspd_smooth(:,1:cut) = nan;
+        winddir_smooth(counts < 3) = nan; winddir_smooth(:,1:cut) = nan;
+        uwind_smooth(counts < 3)   = nan; uwind_smooth(:,1:cut)   = nan;
+        vwind_smooth(counts < 3)   = nan; vwind_smooth(:,1:cut)   = nan;
         ind_nm = isnan(windspd_tmp) & isfinite(uwind_smooth);
         data.wind_speed     = windspd_tmp;
         data.wind_direction = winddir_tmp;
@@ -115,5 +122,4 @@ switch status
         
 end
 end
-
 
