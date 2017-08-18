@@ -9,10 +9,15 @@ switch site
     case 'juelich'
         pathmodel = ['/data/hatpro/jue/cloudnet/' site '/calibrated/' m_type '/' datestr(daten,'yyyy') '/' ...
             datestr(daten,'yyyymmdd') '_' site '_' m_type '.nc'];
-        [data,att] = load_nc_struct(pathmodel);
+        if exist(pathmodel,'file') == 2
+            [data,att] = load_nc_struct(pathmodel);
+
+            for i=1:size(data.height,2)
+               data.range(i,1) = nanmean(data.height(:,i)); 
+            end
         
-        for i=1:size(data.height,2)
-           data.range(i,1) = nanmean(data.height(:,i)); 
+        else
+            data = []; att = [];
         end
         
     case 'arm-oliktok'
