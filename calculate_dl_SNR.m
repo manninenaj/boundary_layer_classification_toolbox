@@ -59,29 +59,41 @@ end
 % defaults if not present
 if ~isfield(data, 'bandwidth')
   data.bandwidth = 5e7;
+  attribute.bandwidth.dimensions = {};
+  attribute.bandwidth.long_name = 'bandwidth';
 end
 if ~isfield(data, 'elevation')
   data.elevation = 90;
+  attribute.elevation.dimensions = {};
+  attribute.elevation.long_name = 'elevation';
 end
 if ~isfield(data, 'lens_diameter')
   data.lens_diameter = 0.06;
 % 0.075 *1/e2 - antenna not fully illuminated
 % 0.04 (5cm antenna and 1/e2 = 0.8) for new version
+  attribute.lens_diameter = create_attributes({},'diameter of lens','m');
 end
 if ~isfield(data, 'wavelength')
   data.wavelength = 1.5e-6;
+  attribute.wavelength = create_attributes({},'laser wavelength','m');
 end
 if ~isfield(data, 'focus')
   data.focus = -1;
 end
 if ~isfield(data, 'energy')
   data.energy = 1e-5;
+  attribute.energy = create_attributes({},'laser energy','J');
 end
 if ~isfield(data, 'prf')
   data.prf = 15000;
+  attribute.prf = create_attributes({},'Pulse repetition frequency','Hz');
 end
 if ~isfield(data, 'num_pulses_m1')
   data.num_pulses_m1 = 50000;
+end
+if ~isfield(data, 'bandwidth')
+    data.bandwidth = 5e+7;
+    attribute.bandwidth = create_attributes({},'Bandwidth','Hz');
 end
 
 missing_value = -999;
@@ -190,6 +202,6 @@ end
 
 data.v_error = interp1(theory.SNR, theory.v_err_approx(:,3), obs_signal);
 data.v_error(isnan(data.v_error)|~isfinite(data.v_error)|data.v_error > theory.Nyquist) = theory.Nyquist;
-attribute.v_error = create_attributes({'time','range'},'Std of velocity', {'ms-1','m s<sup>-1</sup>'}, missing_value, 'This variable is the standard deviation of the velocity estimate, calculated from the SNR variable following Rye and Hardesty (1997). Note that this value is capped at the Nyquist velocity.');
+attribute.v_error = create_attributes({'time','range'},'Std of velocity', {'ms-1','m s<sup>-1</sup>'}, 'This variable is the standard deviation of the velocity estimate, calculated from the SNR variable following Rye and Hardesty (1997)');
 
 
