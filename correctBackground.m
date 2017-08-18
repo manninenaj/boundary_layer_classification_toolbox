@@ -1,5 +1,5 @@
 function [signal_corr, step_locations, cloud_mask, flags, background] =...
-    correctBackground(signal, range, time, varargin)
+    correctBackground(signal, range, time, cut, varargin)
 %CORRECTBACKGROUND function corrects the background signal of the HALO
 %Doppler lidar instrument. The background is corrected for step-changes and
 %for the shape of the background within the step-changes respectively.
@@ -121,7 +121,7 @@ else
     time = time(:);
     % By default, ignore three of the lowest range gates due to
     % incontamination by the emitted pulse.
-    signal(:,1:4) = nan;
+    signal(:,1:cut) = nan;
     signal(signal == 0) = nan;
     
     %% CLOUD SCREENING, cloud-aerosol masking and filling for wavelet
@@ -257,106 +257,107 @@ else
             x_bkg_stp = 1:length(time(i_start_stp:i_end_stp));
             x_bkg_stp(isnan(med_signal_stp)) = [];
             med_signal_stp(isnan(med_signal_stp)) = [];
-            
-            % Calculate linear fit and evaluate for the whole step
-            linear_coeffs = my_robustfit(x_bkg_stp(:), med_signal_stp(:));
-            p_coeff_drift = [linear_coeffs(2) linear_coeffs(1)];
-            step_fitted = polyval(p_coeff_drift, ...
-                1:length(time(i_start_stp:i_end_stp)));
-            
-            % Correct the drift with a step
-            signal_drift_corrtd = signal_0(i_start_stp:i_end_stp,:) -...
-                repmat(step_fitted(:),1,length(range)) +...
-                p_coeff_drift(end);
-            
-            %% CORRECT BACKGROUND SHAPE AND STEP CHANGES
-            % Determines the shape of the background between the
-            % step-changes, and corrects for the shape and for the steps in
-            % the background signal.
-            
-            % Exclude clouds
-            signal_drift_corrtd(isnan(signal_cld_scrd_outlr(...
-                i_start_stp:i_end_stp,:))) = nan;
-            
-            % Median signal per range bin within a step
-            signal_med_bin = nanmedian(signal_drift_corrtd);
-            
-            % Determine is there enough data for higher order fit, depends
-            % on the number and location of the remaining points. If there
-            % are too few data points OR if the data points aren't
-            % distributed sparsely enough, set flag --> no higher order
-            % fit
-            Signal_MedStep_ySel = signal_med_bin(1:length(range)*.5);
-            range_cld_scrd_outlr_sel = range(1:length(range)*.5);
-            if sum(~isnan(Signal_MedStep_ySel)) < 5 || ...
-                    mean(range_cld_scrd_outlr_sel(...
-                    ~isnan(Signal_MedStep_ySel))) > prctile(range,45)
-                
-                % Set flag
-                flag_fit_step = 1;
-            else
-                flag_fit_step = 0;
-            end
-            
-            % Select only non nans
-            y_final_valid = signal_med_bin(~isnan(signal_med_bin));
-            x_final_valid = range(~isnan(signal_med_bin));
-            
-            % Calculate 1st, 2nd deg, and constrained polynomial fits
-            [B_prof_1deg,stats_1deg] = my_robustfit(x_final_valid(:), ...
-                y_final_valid(:));
-            [B_prof_2deg,stats_2deg] = my_robustfit([x_final_valid(:) ...
-                x_final_valid(:).^2], y_final_valid(:));
-            p_1deg_prof = [B_prof_1deg(2) B_prof_1deg(1)];
-            p_2deg_prof = [B_prof_2deg(3) B_prof_2deg(2) B_prof_2deg(1)];
-            % Evaluate coefficients
-            y_fit_prof_1deg = polyval(p_1deg_prof, range);
-            y_fit_prof_2deg = polyval(p_2deg_prof, range);
+            if sum(~isnan(med_signal_stp(:))) > 2
+                % Calculate linear fit and evaluate for the whole step
+                linear_coeffs = my_robustfit(x_bkg_stp(:), med_signal_stp(:));
+                p_coeff_drift = [linear_coeffs(2) linear_coeffs(1)];
+                step_fitted = polyval(p_coeff_drift, ...
+                    1:length(time(i_start_stp:i_end_stp)));
 
-            % If 1st degree polynomial fit is better
-            if stats_1deg.ols_s/stats_2deg.ols_s < 1 || ...
-                    flag_fit_step == 1
-                
-                % Correct for step change and background shape
-                signal_shape_corrtd(i_start_stp:i_end_stp,:) = ...
-                    signal_drift_corrtd - repmat(y_fit_prof_1deg(:)',...
-                    length(i_start_stp:i_end_stp), 1) + ...
-                    p_1deg_prof(2);
-                
-                % Set flag to '1' if 1st deg fit was used
-                flags(i_start_stp:i_end_stp,1) = ...
-                    ones(length(i_start_stp:i_end_stp), 1);
-                
-                % Combine corrections to form corrected background
-                background(i_start_stp:i_end_stp,:) = ...
-                    (repmat(step_fitted(:),1,length(range)) - ...
-                    p_coeff_drift(end))...
-                    + repmat(y_fit_prof_1deg(:)', ...
-                    length(i_start_stp:i_end_stp), 1);
-                
-                % If 2nd degree polynomial fit is better
-            else
-                % Correct for step change and background shape
-                signal_shape_corrtd(i_start_stp:i_end_stp,:) = ...
-                    signal_0(i_start_stp:i_end_stp,:) -...
-                    repmat(y_fit_prof_2deg(:)', ...
-                    length(i_start_stp:i_end_stp), 1) + ...
-                    p_2deg_prof(3);
-                
-                % Set flag to '2' 2nd deg fit was used
-                flags(i_start_stp:i_end_stp,1) = ...
-                    repmat(2,length(i_start_stp:i_end_stp), 1);
-                
-                % Combine corrections to form corrected background
-                background(i_start_stp:i_end_stp,:) = ...
-                    (repmat(step_fitted(:),1,length(range)) - ...
-                    p_coeff_drift(end))...
-                    + repmat(y_fit_prof_2deg(:)', ...
-                    length(i_start_stp:i_end_stp), 1);
+                % Correct the drift with a step
+                signal_drift_corrtd = signal_0(i_start_stp:i_end_stp,:) -...
+                    repmat(step_fitted(:),1,length(range)) +...
+                    p_coeff_drift(end);
+
+                %% CORRECT BACKGROUND SHAPE AND STEP CHANGES
+                % Determines the shape of the background between the
+                % step-changes, and corrects for the shape and for the steps in
+                % the background signal.
+
+                % Exclude clouds
+                signal_drift_corrtd(isnan(signal_cld_scrd_outlr(...
+                    i_start_stp:i_end_stp,:))) = nan;
+
+                % Median signal per range bin within a step
+                signal_med_bin = nanmedian(signal_drift_corrtd);
+
+                % Determine is there enough data for higher order fit, depends
+                % on the number and location of the remaining points. If there
+                % are too few data points OR if the data points aren't
+                % distributed sparsely enough, set flag --> no higher order
+                % fit
+                Signal_MedStep_ySel = signal_med_bin(1:length(range)*.5);
+                range_cld_scrd_outlr_sel = range(1:length(range)*.5);
+                if sum(~isnan(Signal_MedStep_ySel)) < 5 || ...
+                        mean(range_cld_scrd_outlr_sel(...
+                        ~isnan(Signal_MedStep_ySel))) > prctile(range,45)
+
+                    % Set flag
+                    flag_fit_step = 1;
+                else
+                    flag_fit_step = 0;
+                end
+
+                % Select only non nans
+                y_final_valid = signal_med_bin(~isnan(signal_med_bin));
+                x_final_valid = range(~isnan(signal_med_bin));
+
+                % Calculate 1st, 2nd deg, and constrained polynomial fits
+                [B_prof_1deg,stats_1deg] = my_robustfit(x_final_valid(:), ...
+                    y_final_valid(:));
+                [B_prof_2deg,stats_2deg] = my_robustfit([x_final_valid(:) ...
+                    x_final_valid(:).^2], y_final_valid(:));
+                p_1deg_prof = [B_prof_1deg(2) B_prof_1deg(1)];
+                p_2deg_prof = [B_prof_2deg(3) B_prof_2deg(2) B_prof_2deg(1)];
+                % Evaluate coefficients
+                y_fit_prof_1deg = polyval(p_1deg_prof, range);
+                y_fit_prof_2deg = polyval(p_2deg_prof, range);
+
+                % If 1st degree polynomial fit is better
+                if stats_1deg.ols_s/stats_2deg.ols_s < 1 || ...
+                        flag_fit_step == 1
+
+                    % Correct for step change and background shape
+                    signal_shape_corrtd(i_start_stp:i_end_stp,:) = ...
+                        signal_drift_corrtd - repmat(y_fit_prof_1deg(:)',...
+                        length(i_start_stp:i_end_stp), 1) + ...
+                        p_1deg_prof(2);
+
+                    % Set flag to '1' if 1st deg fit was used
+                    flags(i_start_stp:i_end_stp,1) = ...
+                        ones(length(i_start_stp:i_end_stp), 1);
+
+                    % Combine corrections to form corrected background
+                    background(i_start_stp:i_end_stp,:) = ...
+                        (repmat(step_fitted(:),1,length(range)) - ...
+                        p_coeff_drift(end))...
+                        + repmat(y_fit_prof_1deg(:)', ...
+                        length(i_start_stp:i_end_stp), 1);
+
+                    % If 2nd degree polynomial fit is better
+                else
+                    % Correct for step change and background shape
+                    signal_shape_corrtd(i_start_stp:i_end_stp,:) = ...
+                        signal_0(i_start_stp:i_end_stp,:) -...
+                        repmat(y_fit_prof_2deg(:)', ...
+                        length(i_start_stp:i_end_stp), 1) + ...
+                        p_2deg_prof(3);
+
+                    % Set flag to '2' 2nd deg fit was used
+                    flags(i_start_stp:i_end_stp,1) = ...
+                        repmat(2,length(i_start_stp:i_end_stp), 1);
+
+                    % Combine corrections to form corrected background
+                    background(i_start_stp:i_end_stp,:) = ...
+                        (repmat(step_fitted(:),1,length(range)) - ...
+                        p_coeff_drift(end))...
+                        + repmat(y_fit_prof_2deg(:)', ...
+                        length(i_start_stp:i_end_stp), 1);
+                end
+
+                % For iteration
+                i_start_stp = i_end_stp + 1;
             end
-            
-            % For iteration
-            i_start_stp = i_end_stp + 1;
         end
         
         % Correct the step changes and the shape of the background
@@ -388,8 +389,9 @@ else
         case 'correct'
             
             for i_remn = 1:size(signal_0,1)
-                if sum(isnan(signal_shape_corrtd(i_remn,:))) ~= ...
-                        length(signal_shape_corrtd(i_remn,:))
+                if sum(~isnan(signal_shape_corrtd(i_remn,:))) > 2
+%                 if sum(isnan(signal_shape_corrtd(i_remn,:))) ~= ...
+%                         length(signal_shape_corrtd(i_remn,:)) && ~all(cloud_mask(i_remn,:))
                     
                     % Select only background signal and apply cloudmask
                     % calculated from the shape corrected signal
@@ -398,13 +400,14 @@ else
                     y_remn(1:parameters.ignore) = nan;
                     y_r_val = y_remn(~isnan(y_remn));
                     x_r_val = range(~isnan(y_remn));
-                    
-                    % Calculate robust bisquare linear fit
-                    b_remn = my_robustfit(x_r_val(:),y_r_val(:));
-                    p_c_remn = [b_remn(2) b_remn(1)];
-                    y_f_r = polyval(p_c_remn,range);
-                    signal_remn(i_remn,:) = ...
-                        signal_shape_corrtd(i_remn,:) - y_f_r(:)' + 1;
+                    if sum(~isnan(y_r_val(:))) > 2
+                        % Calculate robust bisquare linear fit
+                        b_remn = my_robustfit(x_r_val(:),y_r_val(:));
+                        p_c_remn = [b_remn(2) b_remn(1)];
+                        y_f_r = polyval(p_c_remn,range);
+                        signal_remn(i_remn,:) = ...
+                            signal_shape_corrtd(i_remn,:) - y_f_r(:)' + 1;
+                    end
                 end
             end
             
@@ -414,8 +417,9 @@ else
         case 'remove'
             
             for i_remn = 1:size(signal_0,1)
-                if sum(isnan(signal_shape_corrtd(i_remn,:))) ~= ...
-                        length(signal_shape_corrtd(i_remn,:))
+                if sum(~isnan(signal_shape_corrtd(i_remn,:))) > 2
+%                 if sum(isnan(signal_shape_corrtd(i_remn,:))) ~= ...
+%                         length(signal_shape_corrtd(i_remn,:))
                     
                     % Select only background signal and apply cloudmask
                     % calculated from the shape corrected signal
@@ -424,13 +428,14 @@ else
                     y_remn(1:parameters.ignore) = nan;
                     y_r_val = y_remn(~isnan(y_remn));
                     x_r_val = range(~isnan(y_remn));
-                    
+                    if sum(~isnan(y_r_val(:))) > 2
                     % Calculate robust bisquare linear fit
-                    b_remn = my_robustfit(x_r_val(:),y_r_val(:));
-                    p_c_remn = [b_remn(2) b_remn(1)];
-                    y_f_r = polyval(p_c_remn,range);
-                    signal_remn(i_remn,:) = ...
-                        signal_shape_corrtd(i_remn,:) - y_f_r(:)' + 1;
+                        b_remn = my_robustfit(x_r_val(:),y_r_val(:));
+                        p_c_remn = [b_remn(2) b_remn(1)];
+                        y_f_r = polyval(p_c_remn,range);
+                        signal_remn(i_remn,:) = ...
+                            signal_shape_corrtd(i_remn,:) - y_f_r(:)' + 1;
+                    end
                 end
             end
             
@@ -465,8 +470,9 @@ else
         case 'original'
             
             for i_remn = 1:size(signal_0,1)
-                if sum(isnan(signal_shape_corrtd(i_remn,:))) ~= ...
-                        length(signal_shape_corrtd(i_remn,:))
+                if sum(~isnan(signal_shape_corrtd(i_remn,:))) > 2
+%                 if sum(isnan(signal_shape_corrtd(i_remn,:))) ~= ...
+%                         length(signal_shape_corrtd(i_remn,:))
                     
                     % Select only background signal and apply cloudmask
                     % calculated from the shape corrected signal
@@ -475,15 +481,16 @@ else
                     y_remn(1:parameters.ignore) = nan;
                     y_r_val = y_remn(~isnan(y_remn));
                     x_r_val = range(~isnan(y_remn));
-                    
-                    % Calculate robust bisquare linear fit
-                    b_remn = my_robustfit(x_r_val(:),y_r_val(:));
-                    [~, mID_r] = lastwarn; % iteration limit warning off
-                    if ~isempty(mID_r), warning('off',mID_r), end
-                    p_c_remn = [b_remn(2) b_remn(1)];
-                    y_f_r = polyval(p_c_remn,range);
-                    signal_remn(i_remn,:) = ...
-                        signal_shape_corrtd(i_remn,:) - y_f_r(:)' + 1;
+                    if sum(~isnan(y_r_val(:))) > 2
+                        % Calculate robust bisquare linear fit
+                        b_remn = my_robustfit(x_r_val(:),y_r_val(:));
+                        [~, mID_r] = lastwarn; % iteration limit warning off
+                        if ~isempty(mID_r), warning('off',mID_r), end
+                        p_c_remn = [b_remn(2) b_remn(1)];
+                        y_f_r = polyval(p_c_remn,range);
+                        signal_remn(i_remn,:) = ...
+                            signal_shape_corrtd(i_remn,:) - y_f_r(:)' + 1;
+                    end
                 end
             end
             
@@ -831,8 +838,9 @@ end
         signal_fill = nan(size(signal));
         flag_nofit = nan(size(signal,1),1);
         for i_prof = 1:size(signal,1) % 24280 arm-graciosa 4 testing
-            if sum(isnan(signal_cld_scrd_outlr(i_prof,:))) ~= ...
-                    length(signal_cld_scrd_outlr(i_prof,:))
+            if sum(~isnan(signal_cld_scrd_outlr(i_prof,:))) > 2
+%             if sum(isnan(signal_cld_scrd_outlr(i_prof,:))) ~= ...
+%                     length(signal_cld_scrd_outlr(i_prof,:))
                 % Find outlier indices
                 [~, i_outlrs_hi, ~] = findOutliers(range, ...
                     signal_cld_scrd_outlr(i_prof,:), 1);
@@ -851,70 +859,71 @@ end
                 % Select only non nans
                 y_outlr_rmvd_valid = y_outlr_rmvd(~isnan(y_outlr_rmvd));
                 x_outlr_rmvd_valid = x_outlr_rmvd(~isnan(y_outlr_rmvd));
-                
-                % Get 1st and 2nd deg polynomial fits
-                [B_1deg_final_scrn,stats_final_1deg] = my_robustfit(...
-                    x_outlr_rmvd(:), y_outlr_rmvd(:));
-                p_1deg_final_scrn = [B_1deg_final_scrn(2) ...
-                    B_1deg_final_scrn(1)];
-                [B_2deg_final_scrn,stats_final_2deg] = my_robustfit(...
-                    [x_outlr_rmvd_valid(:) x_outlr_rmvd_valid(:).^2],...
-                    y_outlr_rmvd_valid(:));
-                p_2deg_final_scrn = [B_2deg_final_scrn(3) ...
-                    B_2deg_final_scrn(2) B_2deg_final_scrn(1)];
-                
-                % Evaluate for the whole range
-                y_fit_final_scrn_1deg = polyval(p_1deg_final_scrn, range);
-                y_fit_final_scrn_2deg = polyval(p_2deg_final_scrn, range);
-                
-                % Root Mean Squared Error (RMSE)
-                RMSE_final_scrn_1deg = stats_final_1deg.ols_s;
-                RMSE_final_scrn_2deg = stats_final_2deg.ols_s;
-                
-                % Initialize
-                signal_fill(i_prof,:) = signal_cld_scrd_outlr(i_prof,:);
-                
-                % Ignore additional number of range bins in case some
-                % remnant aerosol signal did remain in the lower most range
-                % bins. Note that the lower the fit reaches the more
-                % accurate it is.
-                signal_fill(i_prof,1:params.ignore) = nan;
-                
-                % Determine if there's enough data for a fit, based on 
-                % number of remaining points and location of the remaining 
-                % points; if too few data points OR if the data points 
-                % aren't distributed sparsely enough, set flag --> 'no fit'
-                signal_cld_scrd_outlr_sel = ...
-                    signal_cld_scrd_outlr(i_prof, 1:length(range) * .5);
-                range_scrd_outlr_sel = range(1:length(range) * .5);
-                if sum(~isnan(signal_cld_scrd_outlr_sel)) < 5 || ...
-                        mean(range_scrd_outlr_sel(...
-                        ~isnan(signal_cld_scrd_outlr_sel))) > ...
-                        prctile(range,45)
-                    
-                    % Do not fit, filled signal remains with nans within
-                    signal_fill(i_prof,...
-                        isnan(signal_cld_scrd_outlr(i_prof,:))) = nan;
-                    
-                    % Set flag
-                    flag_nofit(i_prof) = 1;
-                else
-                    
-                    % If 1st degree polynomial fit is better
-                    if RMSE_final_scrn_1deg/RMSE_final_scrn_2deg < 1.1
-                        % Fill with 1st deg fits
+                if sum(~isnan(y_outlr_rmvd_valid)) > 2
+                    % Get 1st and 2nd deg polynomial fits
+                    [B_1deg_final_scrn,stats_final_1deg] = my_robustfit(...
+                        x_outlr_rmvd(:), y_outlr_rmvd(:));
+                    p_1deg_final_scrn = [B_1deg_final_scrn(2) ...
+                        B_1deg_final_scrn(1)];
+                    [B_2deg_final_scrn,stats_final_2deg] = my_robustfit(...
+                        [x_outlr_rmvd_valid(:) x_outlr_rmvd_valid(:).^2],...
+                        y_outlr_rmvd_valid(:));
+                    p_2deg_final_scrn = [B_2deg_final_scrn(3) ...
+                        B_2deg_final_scrn(2) B_2deg_final_scrn(1)];
+
+                    % Evaluate for the whole range
+                    y_fit_final_scrn_1deg = polyval(p_1deg_final_scrn, range);
+                    y_fit_final_scrn_2deg = polyval(p_2deg_final_scrn, range);
+
+                    % Root Mean Squared Error (RMSE)
+                    RMSE_final_scrn_1deg = stats_final_1deg.ols_s;
+                    RMSE_final_scrn_2deg = stats_final_2deg.ols_s;
+
+                    % Initialize
+                    signal_fill(i_prof,:) = signal_cld_scrd_outlr(i_prof,:);
+
+                    % Ignore additional number of range bins in case some
+                    % remnant aerosol signal did remain in the lower most range
+                    % bins. Note that the lower the fit reaches the more
+                    % accurate it is.
+                    signal_fill(i_prof,1:params.ignore) = nan;
+
+                    % Determine if there's enough data for a fit, based on 
+                    % number of remaining points and location of the remaining 
+                    % points; if too few data points OR if the data points 
+                    % aren't distributed sparsely enough, set flag --> 'no fit'
+                    signal_cld_scrd_outlr_sel = ...
+                        signal_cld_scrd_outlr(i_prof, 1:length(range) * .5);
+                    range_scrd_outlr_sel = range(1:length(range) * .5);
+                    if sum(~isnan(signal_cld_scrd_outlr_sel)) < 5 || ...
+                            mean(range_scrd_outlr_sel(...
+                            ~isnan(signal_cld_scrd_outlr_sel))) > ...
+                            prctile(range,45)
+
+                        % Do not fit, filled signal remains with nans within
                         signal_fill(i_prof,...
-                            isnan(signal_fill(i_prof,:))) =...
-                            y_fit_final_scrn_1deg(...
-                            isnan(signal_fill(i_prof,:)));
-                        
-                        % If 2nd degree polynomial fit is better
+                            isnan(signal_cld_scrd_outlr(i_prof,:))) = nan;
+
+                        % Set flag
+                        flag_nofit(i_prof) = 1;
                     else
-                        % Fill with 2nd deg fits
-                        signal_fill(i_prof,...
-                            isnan(signal_fill(i_prof,:))) =...
-                            y_fit_final_scrn_2deg(...
-                            isnan(signal_fill(i_prof,:)));
+
+                        % If 1st degree polynomial fit is better
+                        if RMSE_final_scrn_1deg/RMSE_final_scrn_2deg < 1.1
+                            % Fill with 1st deg fits
+                            signal_fill(i_prof,...
+                                isnan(signal_fill(i_prof,:))) =...
+                                y_fit_final_scrn_1deg(...
+                                isnan(signal_fill(i_prof,:)));
+
+                            % If 2nd degree polynomial fit is better
+                        else
+                            % Fill with 2nd deg fits
+                            signal_fill(i_prof,...
+                                isnan(signal_fill(i_prof,:))) =...
+                                y_fit_final_scrn_2deg(...
+                                isnan(signal_fill(i_prof,:)));
+                        end
                     end
                 end
             end
