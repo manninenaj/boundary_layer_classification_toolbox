@@ -4,7 +4,7 @@ function [bkg_out, fit_out, bkg_times] = calculateBKG(bkg_path,daten,n_range_gat
 
 dates=datestr(daten,'ddmmyy');
 
-filess=dir([bkg_path 'Background_' dates '*.txt']);
+filess=dir([bkg_path 'Background_' dates '*.txt*']);
 
 bkg_times=nan(length(filess),1); % col1: time
 for i=1:length(filess)
@@ -15,10 +15,27 @@ end
 %% read in backgrounds
 bkg=nan(length(filess),n_range_gates);
 for i=1:length(filess)
-    fn=[bkg_path filess(i).name];
-    fid=fopen(fn,'r');
-    bk=fscanf(fid,'%s');
-    fclose(fid);
+    
+    if ~isempty(strfind(filess(i).name,'.gz'))
+        gunzip([bkg_path filess(i).name],['/data/hatpro/jue/cloudnet/juelich/calibrated/halo-doppler-lidar/'...
+            datestr(daten,'yyyy') '/'])
+        files=dir(['/data/hatpro/jue/cloudnet/juelich/calibrated/halo-doppler-lidar/'...
+            datestr(daten,'yyyy') '/' 'Background_' dates '*.txt']);
+        fn=['/data/hatpro/jue/cloudnet/juelich/calibrated/halo-doppler-lidar/'...
+            datestr(daten,'yyyy') '/' files.name];
+        fid=fopen(fn,'r');
+        bk=fscanf(fid,'%s');
+        fclose(fid);
+        delete(['/data/hatpro/jue/cloudnet/juelich/calibrated/halo-doppler-lidar/'...
+            datestr(daten,'yyyy') '/' files.name])
+    else
+    
+        fn=[bkg_path filess(i).name];
+        fid=fopen(fn,'r');
+        bk=fscanf(fid,'%s');
+        fclose(fid);
+    
+    end
     
     dot_i=find(bk=='.');
     end_i=[1;(dot_i+7)'];
