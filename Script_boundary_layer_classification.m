@@ -23,39 +23,38 @@ close all
 %% GIVE INPUTS
 d_type = 'uncorrected';
 pol_ch = 'co';
-site   = 'arm-oliktok';%'juelich'; %'arm-graciosa';
-save_bkgco = 0; % save bkg corrected data?
+site   = 'arm-oliktok'; %'arm-graciosa';
+save_bkgco = 1; % save bkg corrected data?
 save_blc = 1; % save blc product?
 plot_vis = 'off'; % show blc plot?
-save_plot = 1; % save blc plot
+save_plot = 0; % save blc plot
 
-% unreliable range gates
-switch site
-    case 'arm-oliktok'
-        cut_h = 1;
-        cut_v = 4;
-    otherwise
-        cut_h = 3;
-        cut_v = 3;
-end
+% unreliable range in m
+cut = 100;
 
 %% LOAD DATA
-for daten = datenum(2016,07,16):datenum(2016,07,16)
+for daten = datenum(yyyy,mm,dd):datenum(yyyy,mm,dd)
     
     % load winds that are needed
-    data_wind_tday = combineHaloDBSnVAD(site,daten,cut_h);
-    data_wind_yday = combineHaloDBSnVAD(site,daten-1,cut_h);
-    data_wind_tmrw = combineHaloDBSnVAD(site,daten+1,cut_h);
+    data_wind_tday = combineHaloDBSnVAD(site,daten,cut);
+    data_wind_yday = combineHaloDBSnVAD(site,daten-1,cut);
+    data_wind_tmrw = combineHaloDBSnVAD(site,daten+1,cut);
     if isempty(data_wind_tday)
         continue
     else
+        
+        if ~isempty(data_wind_yday) && size(data_wind_tday.range,1) ~= size(data_wind_yday.range,1)
+            data_wind_yday = [];
+        end
+        if ~isempty(data_wind_tmrw) && size(data_wind_tday.range,1) ~= size(data_wind_tmrw.range,1)
+            data_wind_tmrw = [];
+        end
         
         % Load models winds if exist and speficied for site, otherwise []
         model_wind_tday = loadModel(site,daten,'ecmwf'); %dwd-lmk-9-11
         model_wind_yday = loadModel(site,daten-1,'ecmwf');
         model_wind_tmrw = loadModel(site,daten+1,'ecmwf');
-        if ~isempty(model_wind_tday) && ~isempty(model_wind_yday) && ~isempty(model_wind_tmrw) && ...
-                ~strcmp(site,'arm-oliktok')
+        if ~isempty(model_wind_yday) && ~isempty(model_wind_tmrw) && ~strcmp(site,'arm-oliktok')
             model_wind_yday.time(end)       = [];
             model_wind_tmrw.time(1)         = [];
             model_wind_yday.uwind(end,:)    = [];
@@ -66,7 +65,7 @@ for daten = datenum(2016,07,16):datenum(2016,07,16)
         
         % load Halo vertical data and correct bkg if needed
         [data_vert,att] = preprocessHalo(site,d_type,daten,pol_ch,...
-            save_bkgco);
+            save_bkgco,cut);
         
         %% Locate low level jets
         [LLJ] = detectLLJ(data_wind_tday,daten);
@@ -77,31 +76,37 @@ for daten = datenum(2016,07,16):datenum(2016,07,16)
             shear_direction,aero_top,velo,velo_error,sigma_w,sigma_w_error,...
             aero_layer_mask,nsamples,speed,direc,signal] = calcWindQuantities(...
             data_vert,data_wind_tday,data_wind_yday,data_wind_tmrw,...
-            model_wind_tday,model_wind_yday,model_wind_tmrw,dt,site,cut_v);
+            model_wind_tday,model_wind_yday,model_wind_tmrw,dt,site);
         fnames = fieldnames(time_o);
         
-        %% GET FLUX OR SUNRISE/SET DATA        
-
-        path_flux = ['/data/hatpro/jue/cloudnet/juelich/calibrated/dopplerlidar/oli-ecor/'...
-            'oli30ecorM1.b1.' datestr(daten,'yyyymmdd') '.000000.cdf'];
+        %% GET FLUX OR SUNRISE/SET DATA
+        
+        switch site
+            case 'arm-oliktok'
+                path_flux = ['/data/hatpro/jue/cloudnet/juelich/calibrated/dopplerlidar/oli-ecor/'...
+                    'oli30ecorM1.b1.' datestr(daten,'yyyymmdd') '.000000.cdf'];
+            otherwise
+                path_flux = [];
+        end
+            
         if exist(path_flux,'file') == 2
             flux = load_nc_struct(path_flux);
             t_flux = flux.time./3600;
             flux0 = flux.h;
             flux0(flux.qc_h > 0) = NaN;
-            sun_rise_set = [];
 
         % INTERPOLATE TIME STAMPS
             for ifn = 1:length(fnames)
                 flux.(fnames{ifn}) = interp1(t_flux,flux0,time_o.(fnames{ifn}),'pchip');
             end
-        
+
         else
-            
+
             for ifn = 1:length(fnames)
                 flux.(fnames{ifn}) = [];
             end
-            
+        end
+                    
         switch site
             case 'hyytiala'
                 Location.latitude = 61.845225;
@@ -125,7 +130,7 @@ for daten = datenum(2016,07,16):datenum(2016,07,16)
                 UTCoffset = -9;
         end
             sun_rise_set = suncycle(Location.latitude,Location.longitude,daten);
-        end
+
 %         %%-- OR --%%
 %         time_daten = decimal2daten(time_o.t_1min,daten);
 %         time_sa = pvl_maketimestruct(time_daten, 0); % time is already UTC
@@ -141,7 +146,7 @@ for daten = datenum(2016,07,16):datenum(2016,07,16)
         th.vert_velo = 0;
         
         %% TKE CONNECTED WITH?
-        for ifn = 2:2%length(fnames)
+        for ifn = 4:4%length(fnames)
             
             cloudmask = zeros(size(beta.(fnames{ifn})));
             cloudmask(real(log10(beta.(fnames{ifn}))) > th.cloud) = 1;
@@ -157,7 +162,7 @@ for daten = datenum(2016,07,16):datenum(2016,07,16)
             Eps_med = medianfilter(epsilon.(fnames{ifn}),[window_e,3]);
             Eps_med(isnan(epsilon.(fnames{ifn}))) = nan;
             fubarfield.(fnames{ifn}) = associateTKEwith(...
-                Eps_med,skewn.(fnames{ifn}),cloudmask,th.epsilon,cut_v);
+                Eps_med,skewn.(fnames{ifn}),cloudmask,th.epsilon,data_vert.cut);
             
             bitfield.(fnames{ifn}) = createBitfield(th,...
                 time_o.(fnames{ifn}),beta.(fnames{ifn}),...
@@ -167,7 +172,7 @@ for daten = datenum(2016,07,16):datenum(2016,07,16)
             % BL classification
             [product, product_attribute] = ...
                 createBLC(bitfield.(fnames{ifn}),...
-                fubarfield.(fnames{ifn}),cut_v);
+                fubarfield.(fnames{ifn}),data_vert.cut);
             product.bl_classification(product.bl_classification == 3 & ...
                 isnan(epsilon.(fnames{ifn}))) = 0;
             product.TKE_connected(product.bl_classification == 0) = 0;
@@ -180,7 +185,7 @@ for daten = datenum(2016,07,16):datenum(2016,07,16)
             product_attribute.height.dimensions = {'height'};
             product_attribute.global = att.global;
             dimensions=struct('time',numel(time_o.(fnames{ifn})(:)),'height',...
-                numel(data_vert.range));
+                numel(data_vert.range),'sun',numel(sun_rise_set));
             
             product.speed = speed.(fnames{ifn});
             product.dir = direc.(fnames{ifn});
@@ -192,7 +197,18 @@ for daten = datenum(2016,07,16):datenum(2016,07,16)
             product.vel_err = real(log10(velo_error.(fnames{ifn})));
             product.eps_err = epsilon_error.(fnames{ifn});
             product.snr = signal.(fnames{ifn});
-            product.flux = flux.(fnames{ifn});
+            
+            if ~isempty(flux.(fnames{ifn}))
+                product.flux = flux.(fnames{ifn});
+                product_attribute.flux.dimensions = {'time'};
+                product_attribute.flux.units = 'W m^{-2}';
+                product_attribute.flux.long_name = 'eddy covariance sensible heat flux';
+            end
+            
+            product.sun = sun_rise_set(:);
+            product_attribute.sun.dimensions = {'sun'};
+            product_attribute.sun.units = 'UTC';
+            product_attribute.sun.long_name = 'sun rise and sun set times';
 
             product_attribute.speed.dimensions = {'time','height'};
             product_attribute.speed.units = 'm s^{-1}';
@@ -233,13 +249,9 @@ for daten = datenum(2016,07,16):datenum(2016,07,16)
             product_attribute.snr.dimensions = {'time','height'};
             product_attribute.snr.units = '';
             product_attribute.snr.long_name = 'signal to noise ratio';
-
-            product_attribute.flux.dimensions = {'time'};
-            product_attribute.flux.units = 'W m^{-2}';
-            product_attribute.flux.long_name = 'eddy covariance sensible heat flux';
             
             if save_blc
-                write_nc_struct(sprintf('/data/hatpro/jue/cloudnet/juelich/products/bl-classification/oli/%s_%s_bl_classification_%s.nc', datestr(daten,'yyyymmdd'), site, fnames{ifn}),...
+                write_nc_struct(sprintf('/data/hatpro/jue/cloudnet/juelich/products/bl-classification/%s/%s_bl_classification_%s_%s.nc', datestr(daten,'yyyy'), datestr(daten,'yyyymmdd'), site, fnames{ifn}),...
                     dimensions, product, product_attribute)
             end
 %         end
@@ -316,7 +328,7 @@ for daten = datenum(2016,07,16):datenum(2016,07,16)
         text(0.21,2200,'Vector wind shear','Color','k')
         xlabel('Time UTC')
         %-- Save --%
-        if save_plot
+        if save_plot == 1
             pause(2)
             pathout = '/data/hatpro/jue/cloudnet/juelich/products/bl-classification/oli/';
             export_fig('-png','-nocrop','-painters','-m2',...
@@ -330,7 +342,7 @@ for daten = datenum(2016,07,16):datenum(2016,07,16)
         BLclass(BLclass==0) = nan;
         tmp = BLclass;
         tmp(isnan(beta.(fnames{ifn})))=nan;
-        BLclass(:,cut_v+1:end) = tmp(:,cut_v+1:end);
+        BLclass(:,data_vert.cut+1:end) = tmp(:,data_vert.cut+1:end);
         %
         TKEconnected = double(product.TKE_connected);
         TKEconnected(TKEconnected==0) = nan;
@@ -381,7 +393,7 @@ for daten = datenum(2016,07,16):datenum(2016,07,16)
         LLJs_h = LLJ.height; %LLJs_h(time_LLJs>sun_rise_set(1) & time_LLJs<sun_rise_set(2)) = nan;
         labels = LLJ.label; labels(isnan(LLJs_h)) = nan;
         uniqs = unique(labels(~isnan(labels)));
-        pcolor(data_wind_tday.time,data_wind_tday.range(cut_h+1:end),data_wind_tday.wind_direction(:,cut_h+1:end)');
+        pcolor(data_wind_tday.time,data_wind_tday.range,data_wind_tday.wind_direction');
         for i = 1:numel(uniqs)
             plot(time_LLJs(labels==uniqs(i)),LLJs_h(labels==uniqs(i)),'k-','LineWidth',.5)
             plot(time_LLJs(labels==uniqs(i)),LLJs_h(labels==uniqs(i)),'k.','MarkerSize',10)
@@ -402,18 +414,18 @@ for daten = datenum(2016,07,16):datenum(2016,07,16)
         hold off
         %-- Wind speed --%
         sp4 = subplot(4,1,4); hold on
-        pcolor(data_wind_tday.time,data_wind_tday.range(cut_h+1:end),data_wind_tday.wind_speed(:,cut_h+1:end)');
+        pcolor(data_wind_tday.time,data_wind_tday.range,data_wind_tday.wind_speed');
         for i = 1:numel(uniqs)
             plot(time_LLJs(labels==uniqs(i)),LLJs_h(labels==uniqs(i)),'k-','LineWidth',.5)
             plot(time_LLJs(labels==uniqs(i)),LLJs_h(labels==uniqs(i)),'k.','MarkerSize',10)
         end
-        shading flat; colormap(sp4,cmocean('thermal',99)); caxis([0 20]);
+        shading flat; colormap(sp4,cmocean('thermal',99)); caxis([0 30]);
         set(sp4,'Color',[.8 .8 .8],'Position',[.1 .07 .62 .18],...
             'XTick',0:3:24,'XTickLabel',{'0:00','3:00','6:00','9:00',...
             '12:00','15:00','18:00','21:00','0:00'},'layer','top',...
             'YTick',0:500:2000,'Box','on')
         cb = colorbar;
-        cb.Ticks = 0:5:20;
+        cb.Ticks = 0:5:30;
         cb.Label.String = '(m s^{-1})';
         cb.Position(1) = .74; cb.Position(3) = .015;
         axis(sp4,[0 24 0 2000])
@@ -423,7 +435,7 @@ for daten = datenum(2016,07,16):datenum(2016,07,16)
         xlabel('Time UTC')
         hold off
         %-- Save --%
-        if save_plot
+        if save_plot == 1
             pause(2)
             pathout = '/data/hatpro/jue/cloudnet/juelich/products/bl-classification/oli/';
             export_fig('-png','-nocrop','-painters','-m2',...
@@ -433,5 +445,6 @@ for daten = datenum(2016,07,16):datenum(2016,07,16)
         end
         end
     end
+%     clearvars -except d_type pol_ch site save_bkgco save_blc plot_vis save_plot cut_h cut_v 
 end
 
